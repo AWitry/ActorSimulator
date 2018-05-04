@@ -18,6 +18,7 @@ package actorsimulator;
 import java.util.ArrayList;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -331,8 +332,10 @@ public class Network
 		private volatile boolean doQuit = false, terminationAllowed = false;
 		private final Object threadControl = new Object();
 		
+		private final Semaphore sem = new Semaphore(0);
+		
 		@Override
-		public synchronized void run()
+		public void run()
 		{
 			log(false, "TerminationChecker: Thread started");
 			try
@@ -340,7 +343,7 @@ public class Network
 				startCheck.await();
 			} catch (InterruptedException | BrokenBarrierException ex)
 			{
-				Logger.getLogger(Network.class.getName()).log(Level.SEVERE, null, ex);
+				Log.println(Log.Verbosity.Error, Network.this+ ": TerminationChecker: "+ex);
 			}
 
 			try
@@ -350,7 +353,8 @@ public class Network
 					//log("TerminationChecker: Waiting");
 					try
 					{
-						wait();	
+						sem.acquire();
+						sem.drainPermits();
 					}
 					catch (InterruptedException ex)
 					{
@@ -378,7 +382,7 @@ public class Network
 
 		}
 		
-		public synchronized void allowTermination()
+		public void allowTermination()
 		{
 			terminationAllowed = true;
 			wake();
@@ -392,6 +396,7 @@ public class Network
 					stop();
 				terminationAllowed = false;
 				doQuit = false;
+				sem.drainPermits();
 				thread = new Thread(this);
 				thread.start();
 				log(false, "TerminationCheck: Started. Waiting...");
@@ -426,11 +431,9 @@ public class Network
 			}
 		}
 
-		public synchronized void wake()
+		public void wake()
 		{
-			if (!isAlive())
-				return;
-			notify();
+			sem.release();
 		}
 
 		public boolean isAlive()
