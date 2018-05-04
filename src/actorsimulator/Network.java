@@ -37,6 +37,13 @@ public class Network
 	private static final AtomicInteger counter = new AtomicInteger();
 	private final int myIndex = counter.incrementAndGet();
 	
+	private final int defaultDelayMS;
+	
+	public Network(int defaultLinkDelayMS)
+	{
+		defaultDelayMS = defaultLinkDelayMS;
+	}
+	
 	@Override
 	public String toString()
 	{
@@ -103,7 +110,7 @@ public class Network
 	
 	private int getDelay(ActorControl source, ActorControl sink)
 	{
-		return 300;
+		return defaultDelayMS;
 	}
 			
 			

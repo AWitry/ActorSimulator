@@ -31,12 +31,12 @@ public class ActorSimulator
 	 */
 	public static void main(String[] args) throws InterruptedException
 	{
-		Network network = new Network();
 		Actor[] actors = new Actor[10];
 		for (int i = 0; i < actors.length; i++)
 			actors[i] = network.instantiate(new RingLogic(i==0));
 		for (int i = 0; i < actors.length; i++)
 			network.link(actors[i], actors[(i+1)%actors.length],300);
+		Network network = new Network(1000);
 
 		network.start();
 	
