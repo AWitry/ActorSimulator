@@ -120,7 +120,7 @@ public class Network
 			source.getOutgoingLinks().add(forward);
 			link.ref = forward;
 			isNew.ref = Boolean.TRUE;
-			System.out.println("Connection established: "+source+"->"+sink);
+			Log.println(Log.Verbosity.MinorNetworkEvent, "Connection established: "+source+"->"+sink);
 		});
 
 		if (!isNew.ref)
@@ -134,7 +134,7 @@ public class Network
 			if (rev != null && rev instanceof AbstractLink)
 			{
 				((AbstractLink)link.ref).entangle((AbstractLink)rev);
-				System.out.println("Connection entangled: "+source+"<->"+sink);
+				Log.println(Log.Verbosity.MinorNetworkEvent, "Connection entangled: "+source+"<->"+sink);
 			}
 		}
 		return link.ref;
@@ -162,6 +162,7 @@ public class Network
 		
 		terminated.reset();
 		checkThread.start();
+		Log.println(Log.Verbosity.MajorNetworkEvent, "Starting simulation...");
 		synchronized(ACTORS)
 		{
 			ACTORS.forEach((act) ->
@@ -169,6 +170,7 @@ public class Network
 				act.start();
 			});
 		}
+		checkThread.allowTermination();
 	}
 
 
@@ -225,6 +227,7 @@ public class Network
 	 */
 	public static void shutdown()
 	{
+		Log.println(Log.Verbosity.MinorNetworkEvent, "Starting simulation shut down");
 		checkThread.stop();
 		synchronized(LINKS)
 		{
@@ -243,6 +246,7 @@ public class Network
 			});
 			ACTORS.clear();
 		}
+		Log.println(Log.Verbosity.MajorNetworkEvent, "Simulation shut down");
 		
 	}
 	
@@ -260,7 +264,7 @@ public class Network
 		public void reset()
 		{
 			if (isSet)
-				log("Termination state reset");
+				Log.println(Log.Verbosity.MinorNetworkEvent, "Termination state reset");
 			isSet = false;
 
 		}
@@ -270,7 +274,7 @@ public class Network
 			if (isSet)
 				return;
 			isSet = true;
-			log("Termination state set");
+			Log.println(Log.Verbosity.MinorNetworkEvent, "Termination state set");
 	
 			notifyAll();
 		}
@@ -285,26 +289,20 @@ public class Network
 	}
 	
 	
-	public static boolean verbose = true;
-	public static void log(Object event)
-	{
-		if (verbose)
-			System.out.println("Net: "+event);
-	}
 	
-	private static TerminationCapsule terminated = new TerminationCapsule();
+	private static final TerminationCapsule terminated = new TerminationCapsule();
 	
 	private static class TerminationCheckThread implements Runnable
 	{
 		private final CyclicBarrier startCheck = new CyclicBarrier(2);
 		private Thread thread;
-		private volatile boolean doQuit = false;
-		private Object threadControl = new Object();
+		private volatile boolean doQuit = false, terminationAllowed = false;
+		private final Object threadControl = new Object();
 		
 		@Override
 		public synchronized void run()
 		{
-			log("TerminationChecker: Thread started");
+			Log.println(Log.Verbosity.MinorNetworkEvent, "TerminationChecker: Thread started");
 			try
 			{
 				startCheck.await();
@@ -328,23 +326,30 @@ public class Network
 							Logger.getLogger(Network.class.getName()).log(Level.SEVERE, null, ex);
 						return;
 					}
-					//log("TerminationChecker: Checking");
+					if (!terminationAllowed)
+						continue;
 
 					Status s0 = detectStatus();
-					log("TerminationChecker: s0="+s0);
+					Log.println(Log.Verbosity.MinorNetworkEvent, "TerminationChecker: s0="+s0);
 					if (s0.isActive())
 						continue;
 					terminated.set();
-					log("TerminationChecker: Exit");
+					Log.println(Log.Verbosity.MinorNetworkEvent, "TerminationChecker: Exit");
 					return;
 				}
 			}
 			catch (Exception | Error ex)
 			{
-				log("TerminationChecker: "+ex);
+				Log.println(Log.Verbosity.Error, "TerminationChecker: "+ex);
 
 			}
 
+		}
+		
+		public synchronized void allowTermination()
+		{
+			terminationAllowed = true;
+			wake();
 		}
 	
 		public void start()
@@ -353,10 +358,11 @@ public class Network
 			{
 				if (isAlive())
 					stop();
+				terminationAllowed = false;
 				doQuit = false;
 				thread = new Thread(this);
 				thread.start();
-				log("TerminationCheck: Started. Waiting...");
+				Log.println(Log.Verbosity.MinorNetworkEvent, "TerminationCheck: Started. Waiting...");
 			}
 			try
 			{
@@ -365,7 +371,7 @@ public class Network
 			{
 				Logger.getLogger(Network.class.getName()).log(Level.SEVERE, null, ex);
 			}
-			log("TerminationCheck: Thread responded.");
+			Log.println(Log.Verbosity.MinorNetworkEvent, "TerminationCheck: Thread responded.");
 		
 		}
 		
@@ -384,7 +390,7 @@ public class Network
 				{
 					Logger.getLogger(Network.class.getName()).log(Level.SEVERE, null, ex);
 				}
-				System.out.println("TerminationCheck: Closed down thread");
+				Log.println(Log.Verbosity.MinorNetworkEvent, "TerminationCheck: Closed down thread");
 			}
 		}
 

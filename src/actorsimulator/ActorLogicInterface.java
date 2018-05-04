@@ -79,4 +79,10 @@ public interface ActorLogicInterface
 	 */
 	ActorLink	findConnectionTo(Actor remote);
 
+	/**
+	 * Appends a message to the execution log.
+	 * @param msg Message to append.
+	 */
+	void		log(String msg);
+	
 }

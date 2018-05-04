@@ -32,7 +32,7 @@ public class ActorSimulator
 		Network.start();
 	
 		Network.awaitTermination();
-		System.out.println("Termination detected. Shutting down...");
+		Log.println(Log.Verbosity.MajorNetworkEvent, "Termination detected. Shutting down...");
 		Network.shutdown();
 	}
 	
@@ -53,7 +53,7 @@ public class ActorSimulator
 		{
 			if (pong == null)
 			{
-				System.out.println("Creating pong");
+				iface.log("Creating pong");
 				pong = iface.instantiate(new Pong());
 				pong.sendMessage(new PingPong());
 			}
@@ -64,10 +64,10 @@ public class ActorSimulator
 				p.numPongs ++;
 				if (p.numPongs > 6)
 				{
-					System.out.println("Stopping");
+					iface.log("Stopping");
 					return;
 				}
-				System.out.println(iface.getLocalActor()+ ": Pinging "+p.numPongs);
+				iface.log("Pinging "+p.numPongs);
 				env.getLinkToSender().sendMessage(p);
 			}
 		}
@@ -88,7 +88,7 @@ public class ActorSimulator
 			{
 				PingPong p = (PingPong)env.getContent();
 				p.numPongs ++;
-				System.out.println(iface.getLocalActor()+ ": Ponging "+p.numPongs);
+				iface.log("Ponging "+p.numPongs);
 				
 				ActorLink lnk = env.getLinkToSender();
 				if (lnk == null)
@@ -115,10 +115,10 @@ public class ActorSimulator
 			while ((env = iface.tryGetNextMessage())!=null)
 			{
 				numHandled++;
-				System.out.println(iface.getLocalActor()+": Handled->"+numHandled);
+				iface.log("Handled->"+numHandled);
 				if (numHandled > 2)
 				{
-					System.out.println(iface.getLocalActor()+": Stopping");
+					iface.log("Stopping");
 					return;
 				}
 				
@@ -127,7 +127,7 @@ public class ActorSimulator
 				{
 					if (lnk != env2.getSender())
 					{
-						System.out.println(iface.getLocalActor()+": Forwarding to "+lnk.getDestinationActor());
+						iface.log("Forwarding to "+lnk.getDestinationActor());
 						lnk.sendMessage(env2.getContent());
 					}
 				});
@@ -137,7 +137,7 @@ public class ActorSimulator
 				ActorLink lnk = iface.getAnyOutgoing();
 				if (lnk != null)
 				{
-					System.out.println(iface.getLocalActor()+": Sending pivot to "+lnk.getDestinationActor());
+					iface.log("Sending pivot to "+lnk.getDestinationActor());
 					lnk.sendMessage(null);
 					numHandled++;
 				}
@@ -163,7 +163,7 @@ public class ActorSimulator
 				ActorLink lnk = iface.getAnyOutgoing();
 				if (lnk != null)
 				{
-					System.out.println(iface.getLocalActor()+": Sending pivot to "+lnk.getDestinationActor());
+					iface.log("Sending pivot to "+lnk.getDestinationActor());
 					lnk.sendMessage(null);
 					numHandled++;
 				}
@@ -173,10 +173,10 @@ public class ActorSimulator
 			{
 				Message env = iface.waitGetNextMessage();
 				numHandled++;
-				System.out.println(iface.getLocalActor()+": Handled->"+numHandled);
+				iface.log("Handled->"+numHandled);
 				if (numHandled > 2)
 				{
-					System.out.println(iface.getLocalActor()+": Stopping");
+					iface.log("Stopping");
 					continue;
 				}
 				
@@ -185,7 +185,7 @@ public class ActorSimulator
 				{
 					if (lnk != env2.getSender())
 					{
-						System.out.println(iface.getLocalActor()+": Forwarding to "+lnk.getDestinationActor());
+						iface.log("Forwarding to "+lnk.getDestinationActor());
 						lnk.sendMessage(env2.getContent());
 					}
 				});

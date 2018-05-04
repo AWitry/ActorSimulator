@@ -119,7 +119,7 @@ class ActorControlImpl implements ActorControl
 		{
 			Logger.getLogger(ActorControlImpl.class.getName()).log(Level.SEVERE, null, ex);
 		}
-		Network.log(this+": Shut down");
+		Log.println(Log.Verbosity.MinorNetworkEvent, this+": Shut down");
 		
 	}
 
@@ -147,6 +147,12 @@ class ActorControlImpl implements ActorControl
 	{
 		thread = new Thread(wrapper);
 		thread.start();
+	}
+
+	@Override
+	public void log(String msg)
+	{
+		Log.println( Log.Verbosity.ActorMessage, this+": "+msg);
 	}
 
 	private class LogicWrapper implements Runnable
