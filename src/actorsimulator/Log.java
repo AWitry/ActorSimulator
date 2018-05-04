@@ -16,7 +16,10 @@
 package actorsimulator;
 
 import java.text.SimpleDateFormat;
+import java.time.Instant;
 import java.util.Calendar;
+import java.util.Date;
+import java.util.TimeZone;
 
 /**
  * Centralized message logging
@@ -31,11 +34,19 @@ public class Log
 		Error
 	}
 	
-	private static SimpleDateFormat form = new SimpleDateFormat("HH:mm:ss");
-
+	private static final SimpleDateFormat form = new SimpleDateFormat("HH:mm:ss.SSS");
+	private static final long STARTED = Calendar.getInstance().getTime().getTime();
+	
+	static
+	{
+		form.setTimeZone(TimeZone.getTimeZone("GMT"));	
+	}
+	
 	private static String timestamp()
 	{
-		return form.format(Calendar.getInstance().getTime());
+		long msDelta = Calendar.getInstance().getTime().getTime() - STARTED;
+		Date dt = Date.from(Instant.ofEpochMilli(msDelta));
+		return form.format(dt);
 	}
 	
 	public static Verbosity minVerbosity = Verbosity.MajorNetworkEvent;
