@@ -18,6 +18,7 @@ package actorsimulator;
 import java.util.ArrayList;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -28,22 +29,23 @@ import java.util.logging.Logger;
  */
 public class Network
 {
-	private final static ArrayList<ActorControl> ACTORS = new ArrayList<>();
-	private final static ArrayList<AbstractLink> LINKS = new ArrayList<>();
+	private final ArrayList<ActorControl> actors = new ArrayList<>();
+	private final ArrayList<AbstractLink> links = new ArrayList<>();
 	
 	
-	/**
-	 * Registers a new actor in the local network.
-	 * @param actor Actor to register
-	 * @return actor
-	 */
-	public static ActorControl register(ActorControl actor)
+	private static final AtomicInteger counter = new AtomicInteger();
+	private final int myIndex = counter.incrementAndGet();
+	
+	@Override
+	public String toString()
 	{
-		synchronized(ACTORS)
-		{
-			ACTORS.add(actor);
-		}
-		return actor;
+		return "N"+myIndex;
+	}
+	
+	
+	private void log(boolean major, String msg)
+	{
+		Log.println(major ? Log.Verbosity.MajorNetworkEvent : Log.Verbosity.MinorNetworkEvent, this + ": "+msg);
 	}
 	
 	private static ActorControl toControl(Actor actor)
@@ -60,9 +62,16 @@ public class Network
 	 * @param logic Logic (instance) to use for the new actor
 	 * @return Control to the newly instantiated actor
 	 */
-	public static ActorControl instantiate(ActorLogic logic)
+	public ActorControl instantiate(ActorLogic logic)
 	{
-		return register(new ActorControlImpl(logic));
+		ActorControl ctrl = new ActorControlImpl(this,logic);
+		synchronized(actors)
+		{
+			actors.add(ctrl);
+		}
+		if (isStarted())
+			ctrl.start();
+		return ctrl;
 	}
 	
 	
@@ -73,7 +82,7 @@ public class Network
 	 * @param sink Destination actor
 	 * @return New or existing actor link from source to sink
 	 */
-	public static ActorLink link(Actor source, Actor sink)
+	public ActorLink link(Actor source, Actor sink)
 	{
 		return link(toControl(source),toControl(sink));
 	}
@@ -86,12 +95,12 @@ public class Network
 	 * along the resulting link. Ignored if a link already exists.
 	 * @return New or existing actor link from source to sink
 	 */
-	public static ActorLink link(Actor source, Actor sink, int msDelay)
+	public ActorLink link(Actor source, Actor sink, int msDelay)
 	{
 		return link(toControl(source),toControl(sink),msDelay);
 	}
 	
-	private static int getDelay(ActorControl source, ActorControl sink)
+	private int getDelay(ActorControl source, ActorControl sink)
 	{
 		return 300;
 	}
@@ -99,7 +108,7 @@ public class Network
 			
 	
 	
-	static ActorLink link(ActorControl source, ActorControl sink)
+	ActorLink link(ActorControl source, ActorControl sink)
 	{
 		return link(source,sink,getDelay(source,sink));
 	}
@@ -107,10 +116,19 @@ public class Network
 
 
 	
-	private static ActorLink link(ActorControl source, ActorControl sink, int delay)
+	private ActorLink link(ActorControl source, ActorControl sink, int delay)
 	{
-		if (source == null || sink == null || source==sink)
-			throw new IllegalArgumentException("link(): Source and/or sink handles are invalid");
+		if (source == null)
+			throw new IllegalArgumentException("Network.link(): source is null");
+		if (sink == null)
+			throw new IllegalArgumentException("Network.link(): sink is null");
+		if (sink == source)
+			throw new IllegalArgumentException("Network.link(): source and sink are identical: "+source);
+		if (sink.getNetwork() != this)
+			throw new IllegalArgumentException("Network.link(): sink "+sink+" is not part of the local network");
+		if (source.getNetwork() != this)
+			throw new IllegalArgumentException("Network.link(): source "+source+" is not part of the local network");
+		
 		Ref<AbstractLink> link = new Ref<>();
 		Ref<Boolean> isNew = new Ref<>(Boolean.FALSE);
 		source.getOutgoingLinks().doLocked(() ->
@@ -130,21 +148,21 @@ public class Network
 			source.getOutgoingLinks().add(forward);
 			link.ref = forward;
 			isNew.ref = Boolean.TRUE;
-			Log.println(Log.Verbosity.MinorNetworkEvent, "Connection established: "+source+"->"+sink);
+			log(false, "Connection established: "+source+"->"+sink);
 		});
 
 		if (!isNew.ref)
 			return link.ref;
 		
-		synchronized(LINKS)
+		synchronized(links)
 		{
-			LINKS.add(link.ref);
+			links.add(link.ref);
 			
 			ActorLink rev = sink.findConnectionTo(source);
 			if (rev != null && rev instanceof AbstractLink)
 			{
 				((AbstractLink)link.ref).entangle((AbstractLink)rev);
-				Log.println(Log.Verbosity.MinorNetworkEvent, "Connection entangled: "+source+"<->"+sink);
+				log(false, "Connection entangled: "+source+"<->"+sink);
 			}
 		}
 		return link.ref;
@@ -155,9 +173,14 @@ public class Network
 	 * Retrieves the termination state.
 	 * @return True if termination was detected, false otherwise
 	 */
-	public static boolean hasTerminated()
+	public boolean hasTerminated()
 	{
 		return terminated.get();
+	}
+	
+	public synchronized boolean isStarted()
+	{
+		return checkThread.isAlive();
 	}
 
 	/**
@@ -165,17 +188,17 @@ public class Network
 	 * Must be called exactly once.
 	 * Dynamically instantiated actors during runtime are started automatically
 	 */
-	public static void start()
+	public synchronized void start()
 	{
 		if (checkThread.isAlive())
 			throw new IllegalAccessError("Trying to restart simulation");
 		
 		terminated.reset();
 		checkThread.start();
-		Log.println(Log.Verbosity.MajorNetworkEvent, "Starting simulation...");
-		synchronized(ACTORS)
+		log(true, "Starting simulation...");
+		synchronized(actors)
 		{
-			ACTORS.forEach((act) ->
+			actors.forEach((act) ->
 			{
 				act.start();
 			});
@@ -210,20 +233,20 @@ public class Network
 		
 	};
 	
-	private static Status detectStatus()
+	private Status detectStatus()
 	{
-		synchronized(ACTORS)
+		synchronized(actors)
 		{
 			Status s = new Status();
 
-			for (ActorControl act : ACTORS)
+			for (ActorControl act : actors)
 			{
 				Actor.Status as = act.getStatus();
 				
 				if (as == Actor.Status.Active || as == Actor.Status.MessagesPending)
 					s.actorsActive ++;
 			}
-			for (ActorLink lnk: LINKS)
+			for (ActorLink lnk: links)
 				if (!lnk.isIdle())
 					s.linksActive ++;
 			
@@ -235,32 +258,31 @@ public class Network
 	 * Terminates simulation execution.
 	 * Should be called exactly once at the end
 	 */
-	public static void shutdown()
+	public synchronized void shutdown()
 	{
-		Log.println(Log.Verbosity.MinorNetworkEvent, "Starting simulation shut down");
+		log(false, "Starting simulation shut down");
 		checkThread.stop();
-		synchronized(LINKS)
+		synchronized(links)
 		{
-			LINKS.forEach((lnk) ->
+			links.forEach((lnk) ->
 			{
 				lnk.shutdown();
 			});
-			LINKS.clear();
+			links.clear();
 		}
 		
-		synchronized(ACTORS)
+		synchronized(actors)
 		{
-			ACTORS.forEach((act) ->
+			actors.forEach((act) ->
 			{
 				act.shutdown();
 			});
-			ACTORS.clear();
+			actors.clear();
 		}
-		Log.println(Log.Verbosity.MajorNetworkEvent, "Simulation shut down");
-		
+		log(true, "Simulation shut down");
 	}
 	
-	private static class TerminationCapsule
+	private class TerminationState
 	{
 		private volatile boolean isSet = false;
 		
@@ -274,7 +296,7 @@ public class Network
 		public void reset()
 		{
 			if (isSet)
-				Log.println(Log.Verbosity.MinorNetworkEvent, "Termination state reset");
+				log(false, "Termination state reset");
 			isSet = false;
 
 		}
@@ -284,7 +306,7 @@ public class Network
 			if (isSet)
 				return;
 			isSet = true;
-			Log.println(Log.Verbosity.MinorNetworkEvent, "Termination state set");
+			log(false, "Termination state set");
 	
 			notifyAll();
 		}
@@ -300,9 +322,9 @@ public class Network
 	
 	
 	
-	private static final TerminationCapsule terminated = new TerminationCapsule();
+	private final TerminationState terminated = new TerminationState();
 	
-	private static class TerminationCheckThread implements Runnable
+	private class TerminationCheckThread implements Runnable
 	{
 		private final CyclicBarrier startCheck = new CyclicBarrier(2);
 		private Thread thread;
@@ -312,7 +334,7 @@ public class Network
 		@Override
 		public synchronized void run()
 		{
-			Log.println(Log.Verbosity.MinorNetworkEvent, "TerminationChecker: Thread started");
+			log(false, "TerminationChecker: Thread started");
 			try
 			{
 				startCheck.await();
@@ -340,17 +362,17 @@ public class Network
 						continue;
 
 					Status s0 = detectStatus();
-					Log.println(Log.Verbosity.MinorNetworkEvent, "TerminationChecker: s0="+s0);
+					log(false, "TerminationChecker: s0="+s0);
 					if (s0.isActive())
 						continue;
 					terminated.set();
-					Log.println(Log.Verbosity.MinorNetworkEvent, "TerminationChecker: Exit");
+					log(false, "TerminationChecker: Exit");
 					return;
 				}
 			}
 			catch (Exception | Error ex)
 			{
-				Log.println(Log.Verbosity.Error, "TerminationChecker: "+ex);
+				Log.println(Log.Verbosity.Error, Network.this+ ": TerminationChecker: "+ex);
 
 			}
 
@@ -372,7 +394,7 @@ public class Network
 				doQuit = false;
 				thread = new Thread(this);
 				thread.start();
-				Log.println(Log.Verbosity.MinorNetworkEvent, "TerminationCheck: Started. Waiting...");
+				log(false, "TerminationCheck: Started. Waiting...");
 			}
 			try
 			{
@@ -381,7 +403,7 @@ public class Network
 			{
 				Logger.getLogger(Network.class.getName()).log(Level.SEVERE, null, ex);
 			}
-			Log.println(Log.Verbosity.MinorNetworkEvent, "TerminationCheck: Thread responded.");
+			log(false, "TerminationCheck: Thread responded.");
 		
 		}
 		
@@ -400,7 +422,7 @@ public class Network
 				{
 					Logger.getLogger(Network.class.getName()).log(Level.SEVERE, null, ex);
 				}
-				Log.println(Log.Verbosity.MinorNetworkEvent, "TerminationCheck: Closed down thread");
+				log(false, "TerminationCheck: Closed down thread");
 			}
 		}
 
@@ -420,7 +442,7 @@ public class Network
 		}
 	}
 	
-	private static final TerminationCheckThread checkThread = new TerminationCheckThread();
+	private final TerminationCheckThread checkThread = new TerminationCheckThread();
 
 	
 	
@@ -428,9 +450,10 @@ public class Network
 	
 	/**
 	 * Rechecks termination status.
+	 * May detect termination and wake threads awaiting termination.
 	 * Called by actors when potentially terminal events have occurred
 	 */
-	public static void triggerTerminationCheck()
+	public void triggerTerminationCheck()
 	{
 		checkThread.wake();
 	}
@@ -440,7 +463,7 @@ public class Network
 	 * @throws InterruptedException Throws if the local thread was externally
 	 * interrupted. In this case termination might not have occurred.
 	 */
-	public static void awaitTermination() throws InterruptedException
+	public void awaitTermination() throws InterruptedException
 	{
 		terminated.awaitTermination();
 	}

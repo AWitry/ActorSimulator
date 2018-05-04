@@ -81,7 +81,7 @@ public class BlockingQueue<T>
 	 * Attempts to dequeue the next queued item, blocking if none are waiting
 	 * @return Dequeued item (never null)
 	 */
-	public synchronized T take()
+	public synchronized T take(Network reportTo)
 	{
 		try
 		{
@@ -91,7 +91,7 @@ public class BlockingQueue<T>
 			if (rs != null)
 				return rs;
 			waiting = true;
-			Network.triggerTerminationCheck();
+			reportTo.triggerTerminationCheck();
 			wait();
 			waiting = false;
 			rs = queue.poll();

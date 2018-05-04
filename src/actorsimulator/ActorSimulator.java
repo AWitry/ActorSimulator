@@ -31,19 +31,18 @@ public class ActorSimulator
 	 */
 	public static void main(String[] args) throws InterruptedException
 	{
-//		Network.instantiate(new Ping());
-		
+		Network network = new Network();
 		Actor[] actors = new Actor[10];
 		for (int i = 0; i < actors.length; i++)
-			actors[i] = Network.instantiate(new RingLogic(i==0));
+			actors[i] = network.instantiate(new RingLogic(i==0));
 		for (int i = 0; i < actors.length; i++)
-			Network.link(actors[i], actors[(i+1)%actors.length],300);
+			network.link(actors[i], actors[(i+1)%actors.length],300);
 
-		Network.start();
+		network.start();
 	
-		Network.awaitTermination();
-		Log.println(Log.Verbosity.MajorNetworkEvent, "Termination detected. Shutting down...");
-		Network.shutdown();
+		network.awaitTermination();
+		Log.println(Log.Verbosity.MajorNetworkEvent, "Termination detected. Shutting down "+network+"...");
+		network.shutdown();
 	}
 	
 	private static class PingPong

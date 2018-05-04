@@ -27,12 +27,14 @@ class ActorControlImpl implements ActorControl
 {
 	private final BlockingQueue<Message> pending = new BlockingQueue<>();
 	private final OutgoingLinks outgoingLinks = new OutgoingLinks();
-
+	private final Network network;
 
 	@Override
 	public ActorLink connectTo(Actor remote)
 	{
-		return Network.link(this, remote);
+		if (network != remote.getNetwork())
+			throw new IllegalArgumentException("Trying to connect actors of different networks: "+this+"->"+remote);
+		return network.link(this, remote);
 	}
 	
 	@Override
@@ -86,7 +88,7 @@ class ActorControlImpl implements ActorControl
 	@Override
 	public String toString()
 	{
-		return "Actor "+myIndex;
+		return network+":A"+myIndex;
 	}
 
 	
@@ -102,15 +104,15 @@ class ActorControlImpl implements ActorControl
 	@Override
 	public Message waitGetNextMessage()
 	{
-		return pending.take();
+		return pending.take(network);
 	}
 
 	
 	@Override
 	public ActorLink instantiate(ActorLogic logic)
 	{
-		ActorControl ac = Network.instantiate(logic);
-		ActorLink rs = Network.link(this,ac);
+		ActorControl ac = network.instantiate(logic);
+		ActorLink rs = network.link(this,ac);
 		ac.start();
 		return rs;
 	}
@@ -119,7 +121,7 @@ class ActorControlImpl implements ActorControl
 	@Override
 	public synchronized void shutdown()
 	{
-		wrapper.quit = true;	
+		wrapper.quit = true;
 		pending.quit();
 		wake();
 		try
@@ -165,6 +167,12 @@ class ActorControlImpl implements ActorControl
 		Log.println( Log.Verbosity.ActorMessage, this+": "+msg);
 	}
 
+	@Override
+	public Network getNetwork()
+	{
+		return network;
+	}
+
 	private class LogicWrapper implements Runnable
 	{
 
@@ -199,7 +207,7 @@ class ActorControlImpl implements ActorControl
 				}
 				isActive = false;
 				
-				Network.triggerTerminationCheck();
+				network.triggerTerminationCheck();
 				
 				while (pending.isEmpty() && !quit)
 				{
@@ -230,8 +238,9 @@ class ActorControlImpl implements ActorControl
 	private Thread thread;
 	private final LogicWrapper wrapper;
 	
-	public ActorControlImpl(ActorLogic logic)
+	public ActorControlImpl(Network network, ActorLogic logic)
 	{
+		this.network = network;
 		wrapper = new LogicWrapper(logic);
 	}
 	
