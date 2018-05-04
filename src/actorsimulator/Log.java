@@ -26,7 +26,7 @@ import java.util.TimeZone;
  */
 public class Log
 {
-	public enum Verbosity
+	public enum Significance
 	{
 		MinorNetworkEvent,
 		MajorNetworkEvent,
@@ -49,11 +49,11 @@ public class Log
 		return form.format(dt);
 	}
 	
-	public static Verbosity minVerbosity = Verbosity.MajorNetworkEvent;
+	public static Significance minSignificance = Significance.MajorNetworkEvent;
 	
-	public static void println(Verbosity v, Object obj)
+	public static void println(Significance v, Object obj)
 	{
-		if (obj == null || v.compareTo(minVerbosity) < 0)
+		if (obj == null || v.compareTo(minSignificance) < 0)
 			return;
 		System.out.println(timestamp()+": "+obj);
 	}

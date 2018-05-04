@@ -53,7 +53,7 @@ public class Network
 	
 	private void log(boolean major, String msg)
 	{
-		Log.println(major ? Log.Verbosity.MajorNetworkEvent : Log.Verbosity.MinorNetworkEvent, this + ": "+msg);
+		Log.println(major ? Log.Significance.MajorNetworkEvent : Log.Significance.MinorNetworkEvent, this + ": "+msg);
 	}
 	
 	private static ActorControl toControl(Actor actor)
@@ -350,7 +350,7 @@ public class Network
 				startCheck.await();
 			} catch (InterruptedException | BrokenBarrierException ex)
 			{
-				Log.println(Log.Verbosity.Error, Network.this+ ": TerminationChecker: "+ex);
+				Log.println(Log.Significance.Error, Network.this+ ": TerminationChecker: "+ex);
 			}
 
 			try
@@ -383,7 +383,7 @@ public class Network
 			}
 			catch (Exception | Error ex)
 			{
-				Log.println(Log.Verbosity.Error, Network.this+ ": TerminationChecker: "+ex);
+				Log.println(Log.Significance.Error, Network.this+ ": TerminationChecker: "+ex);
 
 			}
 

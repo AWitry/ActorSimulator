@@ -42,7 +42,7 @@ public class ActorSimulator
 		network.start();
 	
 		network.awaitTermination();
-		Log.println(Log.Verbosity.MajorNetworkEvent, "Termination detected. Shutting down "+network+"...");
+		Log.println(Log.Significance.MajorNetworkEvent, "Termination detected. Shutting down "+network+"...");
 		network.shutdown();
 	}
 	

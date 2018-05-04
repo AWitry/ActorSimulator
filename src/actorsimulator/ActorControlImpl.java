@@ -133,7 +133,7 @@ class ActorControlImpl implements ActorControl
 		{
 			Logger.getLogger(ActorControlImpl.class.getName()).log(Level.SEVERE, null, ex);
 		}
-		Log.println(Log.Verbosity.MinorNetworkEvent, this+": Shut down");
+		Log.println(Log.Significance.MinorNetworkEvent, this+": Shut down");
 		
 	}
 
@@ -166,7 +166,7 @@ class ActorControlImpl implements ActorControl
 	@Override
 	public void log(String msg)
 	{
-		Log.println( Log.Verbosity.ActorMessage, this+": "+msg);
+		Log.println( Log.Significance.ActorMessage, this+": "+msg);
 	}
 
 	@Override
@@ -223,7 +223,7 @@ class ActorControlImpl implements ActorControl
 					catch (InterruptedException ex)
 					{
 						if (!quit)
-							Log.println(Log.Verbosity.Error, this+": "+ ex);
+							Log.println(Log.Significance.Error, this+": "+ ex);
 					}
 				}
 			}
