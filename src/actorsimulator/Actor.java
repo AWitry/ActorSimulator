@@ -31,13 +31,26 @@ public interface Actor
 	void		visitOutgoing(Consumer<? super ActorLink> visitor);
 	
 	
-	enum Status
+	/**
+	 * Potential actor states
+	 */
+	public enum Status
 	{
 		PassiveBlocked,
 		PassiveReturned,
 		MessagesPending,
 		Active
 	}
+	
+	/**
+	 * Determines the current actor state.
+	 * @return Actor state
+	 */
 	Status		getStatus();
 
+	/**
+	 * Fetches the owning network.
+	 * @return Network this actor is part of
+	 */
+	Network		getNetwork();
 }
