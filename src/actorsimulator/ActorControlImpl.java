@@ -15,6 +15,7 @@
  */
 package actorsimulator;
 
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.logging.Level;
@@ -119,11 +120,12 @@ class ActorControlImpl implements ActorControl
 
 
 	@Override
-	public synchronized void shutdown()
+	public void shutdown()
 	{
 		wrapper.quit = true;
 		pending.quit();
 		wake();
+		thread.interrupt();
 		try
 		{
 			thread.join();
@@ -180,6 +182,8 @@ class ActorControlImpl implements ActorControl
 		private final ActorLogic logic;
 		public volatile boolean isActive = false;
 		
+		private final Semaphore sem = new Semaphore(0);
+		
 		private LogicWrapper(ActorLogic logic)
 		{
 			this.logic = logic;
@@ -211,16 +215,15 @@ class ActorControlImpl implements ActorControl
 				
 				while (pending.isEmpty() && !quit)
 				{
-					synchronized (this)
+					try
 					{
-						try
-						{
-							wait();
-						}
-						catch (InterruptedException ex)
-						{
-							//we don't do this
-						}
+						sem.acquire();
+						sem.drainPermits();
+					}
+					catch (InterruptedException ex)
+					{
+						if (!quit)
+							Log.println(Log.Verbosity.Error, this+": "+ ex);
 					}
 				}
 			}
@@ -230,6 +233,11 @@ class ActorControlImpl implements ActorControl
 		public String toString()
 		{
 			return ActorControlImpl.this.toString();
+		}
+
+		private void wake()
+		{
+			sem.release();
 		}
 		
 	}
@@ -246,10 +254,7 @@ class ActorControlImpl implements ActorControl
 	
 	public void wake()
 	{
-		synchronized(wrapper)
-		{
-			wrapper.notify();
-		}
+		wrapper.wake();
 	}
 	
 	
