@@ -5,12 +5,8 @@
  */
 package actorsimulator;
 
-import java.util.UUID;
-
-
 /**
- *
- * @author IronFox
+ * Mail inbox
  */
 public interface Mailbox
 {

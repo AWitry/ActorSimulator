@@ -19,11 +19,15 @@ public interface Actor
 	 * @param visitor Visitor to receive all outgoing links
 	 */
 	void		visitOutgoing(Consumer<? super ActorLink> visitor);
-	/**
-	 * Checks whether or not the local actor has pending messages or
-	 * busy threads
-	 * @return True if messages are pending or threads are working
-	 */
-	boolean		isActive();
+	
+	
+	enum Status
+	{
+		PassiveBlocked,
+		PassiveReturned,
+		MessagesPending,
+		Active
+	}
+	Status		getStatus();
 
 }

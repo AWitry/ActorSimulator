@@ -107,9 +107,9 @@ class ActorControlImpl implements ActorControl
 
 
 	@Override
-	public void shutdown()
+	public synchronized void shutdown()
 	{
-		mapper.quit = true;	
+		wrapper.quit = true;	
 		pending.quit();
 		wake();
 		try
@@ -119,6 +119,8 @@ class ActorControlImpl implements ActorControl
 		{
 			Logger.getLogger(ActorControlImpl.class.getName()).log(Level.SEVERE, null, ex);
 		}
+		Network.log(this+": Shut down");
+		
 	}
 
 	
@@ -141,21 +143,20 @@ class ActorControlImpl implements ActorControl
 	}
 	
 	@Override
-	public void start()
+	public synchronized void start()
 	{
+		thread = new Thread(wrapper);
 		thread.start();
 	}
 
-
-	
-	private class Mapper implements Runnable
+	private class LogicWrapper implements Runnable
 	{
 
 		public volatile boolean quit = false;
 		private final ActorLogic logic;
 		public volatile boolean isActive = false;
 		
-		private Mapper(ActorLogic logic)
+		private LogicWrapper(ActorLogic logic)
 		{
 			this.logic = logic;
 		}
@@ -201,32 +202,42 @@ class ActorControlImpl implements ActorControl
 			}
 		}
 		
+		@Override
+		public String toString()
+		{
+			return ActorControlImpl.this.toString();
+		}
 		
 	}
 	
 	
-	private final Thread thread;
-	private final Mapper mapper;
+	private Thread thread;
+	private final LogicWrapper wrapper;
 	
 	public ActorControlImpl(ActorLogic logic)
 	{
-		mapper = new Mapper(logic);
-		thread = new Thread(mapper);
+		wrapper = new LogicWrapper(logic);
 	}
 	
 	public void wake()
 	{
-		synchronized(mapper)
+		synchronized(wrapper)
 		{
-			mapper.notify();
+			wrapper.notify();
 		}
 	}
 	
 	
 	
 	@Override
-	public synchronized boolean isActive()
+	public synchronized Status getStatus()
 	{
-		return pending.isNotEmptyOrNotWaiting() && (!pending.isEmpty() || mapper.isActive);
+		if (!pending.isNotEmptyOrNotWaiting())
+			return Status.PassiveBlocked;
+		if (wrapper.isActive)
+			return Status.Active;
+		if (!pending.isEmpty())
+			return Status.MessagesPending;
+		return Status.PassiveReturned;
 	}
 }

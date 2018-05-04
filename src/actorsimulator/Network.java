@@ -6,6 +6,10 @@
 package actorsimulator;
 
 import java.util.ArrayList;
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CyclicBarrier;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Global registry for actors and links.
@@ -136,7 +140,6 @@ public class Network
 		return link.ref;
 	}
 
-	private static boolean terminated = false;
 	
 	/**
 	 * Retrieves the termination state.
@@ -144,7 +147,7 @@ public class Network
 	 */
 	public static boolean hasTerminated()
 	{
-		return terminated;
+		return terminated.get();
 	}
 
 	/**
@@ -154,9 +157,11 @@ public class Network
 	 */
 	public static void start()
 	{
-		if (terminationChecker.isAlive())
+		if (checkThread.isAlive())
 			throw new IllegalAccessError("Trying to restart simulation");
-				
+		
+		terminated.reset();
+		checkThread.start();
 		synchronized(ACTORS)
 		{
 			ACTORS.forEach((act) ->
@@ -164,7 +169,6 @@ public class Network
 				act.start();
 			});
 		}
-		terminationChecker.start();
 	}
 
 
@@ -200,9 +204,13 @@ public class Network
 		{
 			Status s = new Status();
 
-			for (Actor act : ACTORS)
-				if (act.isActive())
+			for (ActorControl act : ACTORS)
+			{
+				Actor.Status as = act.getStatus();
+				
+				if (as == Actor.Status.Active || as == Actor.Status.MessagesPending)
 					s.actorsActive ++;
+			}
 			for (ActorLink lnk: LINKS)
 				if (!lnk.isIdle())
 					s.linksActive ++;
@@ -217,6 +225,7 @@ public class Network
 	 */
 	public static void shutdown()
 	{
+		checkThread.stop();
 		synchronized(LINKS)
 		{
 			LINKS.forEach((lnk) ->
@@ -236,38 +245,169 @@ public class Network
 		}
 		
 	}
-
-	private static final Object terminalWaiter = new Object(), 
-			checkWaiter = new Object();
-	private static final Thread terminationChecker = new Thread(()->
+	
+	private static class TerminationCapsule
 	{
-		while (true)
+		private volatile boolean isSet = false;
+		
+		
+		public boolean get()
 		{
-			synchronized(checkWaiter)
+			return isSet;
+		}
+		
+		
+		public void reset()
+		{
+			if (isSet)
+				log("Termination state reset");
+			isSet = false;
+
+		}
+		
+		public synchronized void set()
+		{
+			if (isSet)
+				return;
+			isSet = true;
+			log("Termination state set");
+	
+			notifyAll();
+		}
+		
+		
+		public synchronized void awaitTermination() throws InterruptedException
+		{
+			if (isSet)
+				return;
+			wait();
+		}
+	}
+	
+	
+	public static boolean verbose = true;
+	public static void log(Object event)
+	{
+		if (verbose)
+			System.out.println("Net: "+event);
+	}
+	
+	private static TerminationCapsule terminated = new TerminationCapsule();
+	
+	private static class TerminationCheckThread implements Runnable
+	{
+		private final CyclicBarrier startCheck = new CyclicBarrier(2);
+		private Thread thread;
+		private volatile boolean doQuit = false;
+		private Object threadControl = new Object();
+		
+		@Override
+		public synchronized void run()
+		{
+			log("TerminationChecker: Thread started");
+			try
 			{
+				startCheck.await();
+			} catch (InterruptedException | BrokenBarrierException ex)
+			{
+				Logger.getLogger(Network.class.getName()).log(Level.SEVERE, null, ex);
+			}
+
+			try
+			{
+				while (!doQuit)
+				{
+					//log("TerminationChecker: Waiting");
+					try
+					{
+						wait();	
+					}
+					catch (InterruptedException ex)
+					{
+						if (!doQuit)
+							Logger.getLogger(Network.class.getName()).log(Level.SEVERE, null, ex);
+						return;
+					}
+					//log("TerminationChecker: Checking");
+
+					Status s0 = detectStatus();
+					log("TerminationChecker: s0="+s0);
+					if (s0.isActive())
+						continue;
+					terminated.set();
+					log("TerminationChecker: Exit");
+					return;
+				}
+			}
+			catch (Exception | Error ex)
+			{
+				log("TerminationChecker: "+ex);
+
+			}
+
+		}
+	
+		public void start()
+		{
+			synchronized(threadControl)
+			{
+				if (isAlive())
+					stop();
+				doQuit = false;
+				thread = new Thread(this);
+				thread.start();
+				log("TerminationCheck: Started. Waiting...");
+			}
+			try
+			{
+				startCheck.await();
+			} catch (InterruptedException | BrokenBarrierException ex)
+			{
+				Logger.getLogger(Network.class.getName()).log(Level.SEVERE, null, ex);
+			}
+			log("TerminationCheck: Thread responded.");
+		
+		}
+		
+		public void stop()
+		{
+			synchronized (threadControl)
+			{
+				if (!isAlive())
+					return;
+				doQuit = true;
+				thread.interrupt();
 				try
 				{
-					checkWaiter.wait();	
-				}
-				catch (Exception ex)
-				{}
-			}
-
-			Status s0 = detectStatus();
-			System.out.println("s0="+s0);
-			if (s0.isActive())
-				continue;
-			terminated = true;
-			if (terminated)
-			{
-				synchronized (terminalWaiter)
+					thread.join();
+				} catch (InterruptedException ex)
 				{
-					terminalWaiter.notifyAll();
+					Logger.getLogger(Network.class.getName()).log(Level.SEVERE, null, ex);
 				}
-				return;
+				System.out.println("TerminationCheck: Closed down thread");
 			}
 		}
-	});
+
+		public synchronized void wake()
+		{
+			if (!isAlive())
+				return;
+			notify();
+		}
+
+		public boolean isAlive()
+		{
+			synchronized (threadControl)
+			{
+				return thread != null && thread.isAlive();
+			}
+		}
+	}
+	
+	private static final TerminationCheckThread checkThread = new TerminationCheckThread();
+
+	
+	
 	
 	
 	/**
@@ -276,10 +416,7 @@ public class Network
 	 */
 	public static void triggerTerminationCheck()
 	{
-		synchronized (checkWaiter)
-		{
-			checkWaiter.notify();
-		}
+		checkThread.wake();
 	}
 	
 	/**
@@ -289,10 +426,7 @@ public class Network
 	 */
 	public static void awaitTermination() throws InterruptedException
 	{
-		synchronized(terminalWaiter)
-		{
-			terminalWaiter.wait();
-		}
+		terminated.awaitTermination();
 	}
 
 	
