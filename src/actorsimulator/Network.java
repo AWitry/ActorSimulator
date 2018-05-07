@@ -130,8 +130,6 @@ public class Network
 			throw new IllegalArgumentException("Network.link(): source is null");
 		if (sink == null)
 			throw new IllegalArgumentException("Network.link(): sink is null");
-		if (sink == source)
-			throw new IllegalArgumentException("Network.link(): source and sink are identical: "+source);
 		if (sink.getNetwork() != this)
 			throw new IllegalArgumentException("Network.link(): sink "+sink+" is not part of the local network");
 		if (source.getNetwork() != this)
@@ -167,7 +165,7 @@ public class Network
 			links.add(link.ref);
 			
 			ActorLink rev = sink.findConnectionTo(source);
-			if (rev != null && rev instanceof AbstractLink)
+			if (rev != null && rev != link.ref && rev instanceof AbstractLink)
 			{
 				((AbstractLink)link.ref).entangle((AbstractLink)rev);
 				log(false, "Connection entangled: "+source+"<->"+sink);
