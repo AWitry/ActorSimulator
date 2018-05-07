@@ -55,6 +55,9 @@ public class Log
 	{
 		if (obj == null || v.compareTo(minSignificance) < 0)
 			return;
-		System.out.println(timestamp()+": "+obj);
+		if (v == Significance.Error)
+			System.err.println(timestamp()+": "+obj);
+		else
+			System.out.println(timestamp()+": "+obj);
 	}
 }
