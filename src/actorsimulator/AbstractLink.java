@@ -57,6 +57,11 @@ public abstract class AbstractLink implements ActorLink
 	 * 
 	 * @return 
 	 */
+	void signalSend()
+	{
+		source.signalMessageSent();
+	}
+	
 	public Mailbox getDestinationMailbox()
 	{
 		return destination;

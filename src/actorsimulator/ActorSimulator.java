@@ -31,19 +31,22 @@ public class ActorSimulator
 	 */
 	public static void main(String[] args) throws InterruptedException
 	{
-		Network network = new Network(1000);
+		Network network = new Network(0);		//instant delivery on default links
+		//Network network = new Network(300);	//300ms delay on default links
+
+		//network.instantiate(new Ping());	//dynamically establishes its network
 		
+		//construct 10 actor ring network:
 		Actor[] actors = new Actor[10];
 		for (int i = 0; i < actors.length; i++)
-			actors[i] = network.instantiate(new RingLogic(i==0));
+			actors[i] = network.instantiate(new BlockingRingLogic(i==0));	//can also use RingLogic(i==0) here
 		for (int i = 0; i < actors.length; i++)
-			network.link(actors[i], actors[(i+1)%actors.length]);
+			network.link(actors[i], actors[(i+1)%actors.length]);	//create uni-directional link
 
-		network.start();
-	
-		network.awaitTermination();
+		network.start();	//start threads and run the system
+		network.awaitTermination();	//sleep until the network has stopped
 		Log.println(Log.Significance.MajorNetworkEvent, "Termination detected. Shutting down "+network+"...");
-		network.shutdown();
+		network.shutdown();	//join all threads
 	}
 	
 	private static class PingPong

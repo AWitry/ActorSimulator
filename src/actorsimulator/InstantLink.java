@@ -37,6 +37,7 @@ public class InstantLink extends AbstractLink
 	@Override
 	public void sendMessage(Object message)
 	{
+		super.signalSend();
 		getDestinationMailbox().receive(new Message(getSourceActor(), getReverse(), message));
 	}
 

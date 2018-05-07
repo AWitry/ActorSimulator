@@ -33,4 +33,10 @@ public interface ActorControl extends Actor, Mailbox, ActorLogicInterface
 	 */
 	void		shutdown();
 
+	/**
+	 * Signals that a message was sent by this actor.
+	 * Thread safe
+	 */
+	void		signalMessageSent();
+
 }

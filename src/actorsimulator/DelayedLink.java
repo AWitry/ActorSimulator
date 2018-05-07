@@ -136,6 +136,7 @@ public class DelayedLink extends AbstractLink implements Runnable
 	@Override
 	public void sendMessage(Object message)
 	{
+		super.signalSend();
 		items.add(new Item(message,System.nanoTime()+msDelay * 1000000));
 	}
 

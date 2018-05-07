@@ -27,7 +27,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public class BlockingQueue<T>
 {
 	private final ConcurrentLinkedQueue<T> queue = new ConcurrentLinkedQueue<>();
-	
+	private int	messagesDispatched = 0;
 	private volatile boolean waiting = false, hasQuit = false;
 
 	public boolean isEmpty()
@@ -74,7 +74,10 @@ public class BlockingQueue<T>
 	 */
 	public synchronized T tryTake()
 	{
-		return queue.poll();
+		T rs = queue.poll();
+		if (rs != null)
+			messagesDispatched++;
+		return rs;
 	}
 	
 	/**
@@ -89,14 +92,20 @@ public class BlockingQueue<T>
 				throw new Quit();
 			T rs = queue.poll();
 			if (rs != null)
+			{
+				messagesDispatched++;
 				return rs;
+			}
+			
 			waiting = true;
 			reportTo.triggerTerminationCheck();
 			wait();
 			waiting = false;
+			
 			rs = queue.poll();
 			if (rs == null || hasQuit)
 				throw new Quit();
+			messagesDispatched++;
 			return rs;
 		}
 		catch (InterruptedException ex)
@@ -104,6 +113,16 @@ public class BlockingQueue<T>
 			//not happening. don't know what to do
 			return null;
 		}
+	}
+	
+	/**
+	 * Retrieves the total number of messages that have been delivered via
+	 * take() or tryTake() since creation of the local object.
+	 * @return Number of dispatches messages
+	 */
+	public int countDispatchesMessages()
+	{
+		return messagesDispatched;
 	}
 	
 	/**

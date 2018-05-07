@@ -27,6 +27,7 @@ import java.util.logging.Logger;
 class ActorControlImpl implements ActorControl
 {
 	private final BlockingQueue<Message> pending = new BlockingQueue<>();
+	private final AtomicInteger	messagesSent = new AtomicInteger();
 	private final OutgoingLinks outgoingLinks = new OutgoingLinks();
 	private final Network network;
 
@@ -82,7 +83,12 @@ class ActorControlImpl implements ActorControl
 		});
 	}
 
-
+	@Override
+	public void signalMessageSent()
+	{
+		messagesSent.incrementAndGet();
+	}
+	
 	private static final AtomicInteger counter = new AtomicInteger();
 	private final int myIndex = counter.incrementAndGet();
 	
@@ -257,17 +263,39 @@ class ActorControlImpl implements ActorControl
 		wrapper.wake();
 	}
 	
-	
-	
+
 	@Override
 	public synchronized Status getStatus()
 	{
+		/*
+		Messages count and thread status may be out of sync.
+		Changes are still consistent for termination checks because:
+			pending.countDispatchesMessages() increments => thread is active
+				or has finished processing message. can see:
+					thread active, message count incremented
+					thread inactive, message count incremented
+					
+			messagesSent increments => thread is active
+				or has become passive AFTER sending
+			neither can be detected incremented before thread is considered
+				active
+			both message receiving and getStatus() are synchronized:
+				no messages can be received between getThreadStatus()
+				and countDispatchesMessages()
+		*/
+		return new Status(getThreadStatus(), 
+				messagesSent.get(), 
+				pending.countDispatchesMessages());
+	}
+	
+	public synchronized ThreadStatus getThreadStatus()
+	{
 		if (!pending.isNotEmptyOrNotWaiting())
-			return Status.PassiveBlocked;
+			return ThreadStatus.PASSIVE_BLOCKED;
 		if (wrapper.isActive)
-			return Status.Active;
+			return ThreadStatus.ACTIVE;
 		if (!pending.isEmpty())
-			return Status.MessagesPending;
-		return Status.PassiveReturned;
+			return ThreadStatus.MESSAGES_PENDING;
+		return ThreadStatus.PASSIVE_RETURNED;
 	}
 }

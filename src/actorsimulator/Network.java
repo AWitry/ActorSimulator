@@ -214,32 +214,33 @@ public class Network
 		checkThread.allowTermination();
 	}
 
-
 	private static class Status
 	{
-		public int	actorsActive = 0, linksActive = 0;
+		public int	sent = 0,
+					received = 0,
+					active = 0;
 		
 		public boolean equals(Status other)
 		{
 			return other != null
-					&& actorsActive == other.actorsActive
-					&& linksActive == other.linksActive
-					;
-			
+					&& sent == other.sent 
+					&& received == other.received 
+					&& active == other.active;
 		}
 		
 		public boolean isActive()
 		{
-			return actorsActive != 0 || linksActive != 0;
+			return sent != received || active != 0;
 		}
 		
-		@Override
 		public String toString()
 		{
-			return "actors:"+actorsActive+",links:"+linksActive;
+			return "sent="+sent+",recv="+received+",active="+active;
 		}
 		
 	};
+	
+	
 	
 	private Status detectStatus()
 	{
@@ -249,14 +250,12 @@ public class Network
 
 			for (ActorControl act : actors)
 			{
-				Actor.Status as = act.getStatus();
-				
-				if (as == Actor.Status.Active || as == Actor.Status.MessagesPending)
-					s.actorsActive ++;
+				Actor.Status st = act.getStatus();
+				s.received += st.receivedMessages;
+				s.sent += st.sentMessages;
+				if (st.isActive())
+					s.active ++;
 			}
-			for (ActorLink lnk: links)
-				if (!lnk.isIdle())
-					s.linksActive ++;
 			
 			return s;
 		}
@@ -376,6 +375,10 @@ public class Network
 					log(false, "TerminationChecker: s0="+s0);
 					if (s0.isActive())
 						continue;
+					Status s1 = detectStatus();
+					if (!s1.equals(s0))
+						continue;
+					
 					terminated.set();
 					log(false, "TerminationChecker: Exit");
 					return;

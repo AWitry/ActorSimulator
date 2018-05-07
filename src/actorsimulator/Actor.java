@@ -32,14 +32,57 @@ public interface Actor
 	
 	
 	/**
-	 * Potential actor states
+	 * Determines the current actor thread status
 	 */
-	public enum Status
+	public enum ThreadStatus
 	{
-		PassiveBlocked,
-		PassiveReturned,
-		MessagesPending,
-		Active
+		/**
+		 * Thread is actively waiting for messages
+		 */
+		PASSIVE_BLOCKED,	
+		/**
+		 * Thread has returned from ActorLogic.execute().
+		 * Will be reactivated if messages are received
+		 */
+		PASSIVE_RETURNED,
+		/**
+		 * Thread is inactive but messages are pending,
+		 * so will reactivate shortly.
+		 */
+		MESSAGES_PENDING,
+		/**
+		 * Thread is active
+		 */
+		ACTIVE
+	}
+	
+	/**
+	 * Actor processing status
+	 */
+	public static class Status
+	{
+		/**
+		 * Actor thread status
+		 */
+		public final ThreadStatus status;
+		/**
+		 * Messages sent and received by the local actor.
+		 * Received messages are not necessarily processed yet.
+		 */
+		public final int sentMessages,receivedMessages;
+		
+		public Status(ThreadStatus s, int numSent, int numReceived)
+		{
+			status = s;
+			sentMessages = numSent;
+			receivedMessages = numReceived;
+		}
+		
+		public boolean isActive()
+		{
+			return status == ThreadStatus.ACTIVE 
+					|| status ==ThreadStatus.MESSAGES_PENDING;
+		}
 	}
 	
 	/**
