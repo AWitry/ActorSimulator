@@ -130,7 +130,6 @@ class ActorControlImpl implements ActorControl
 	{
 		wrapper.quit = true;
 		pending.quit();
-		wake();
 		thread.interrupt();
 		try
 		{
@@ -149,17 +148,7 @@ class ActorControlImpl implements ActorControl
 	@Override
 	public synchronized void receive(Message ev)
 	{
-		boolean wasEmpty = pending.isEmpty();
 		pending.add(ev);
-		if (wasEmpty)
-		{
-			/*
-			No uniqueness guarantee. multiple threads might detect wasEmpty 
-			as true. so wake multiple times, w/e.
-			Most of the time it'll work
-			*/
-			wake();	
-		}
 	}
 	
 	@Override
@@ -188,7 +177,6 @@ class ActorControlImpl implements ActorControl
 		private final ActorLogic logic;
 		public volatile boolean isActive = false;
 		
-		private final Semaphore sem = new Semaphore(0);
 		
 		private LogicWrapper(ActorLogic logic)
 		{
@@ -223,8 +211,7 @@ class ActorControlImpl implements ActorControl
 				{
 					try
 					{
-						sem.acquire();
-						sem.drainPermits();
+						pending.inactiveAwaitMessages();
 					}
 					catch (InterruptedException ex)
 					{
@@ -240,12 +227,6 @@ class ActorControlImpl implements ActorControl
 		{
 			return ActorControlImpl.this.toString();
 		}
-
-		private void wake()
-		{
-			sem.release();
-		}
-		
 	}
 	
 	
@@ -258,10 +239,6 @@ class ActorControlImpl implements ActorControl
 		wrapper = new LogicWrapper(logic);
 	}
 	
-	public void wake()
-	{
-		wrapper.wake();
-	}
 	
 
 	@Override

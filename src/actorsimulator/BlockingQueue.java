@@ -35,6 +35,21 @@ public class BlockingQueue<T>
 		return queue.isEmpty() || hasQuit;
 	}
 
+	/**
+	 * Performs a synchronized wait operation for the next message.
+	 * This method is invoked while inactive, waiting for messages before
+	 * reactivating the owning actor.
+	 * @throws InterruptedException 
+	 */
+	public synchronized void inactiveAwaitMessages() throws InterruptedException
+	{
+		if (hasQuit)
+			return;
+		if (!queue.isEmpty())
+			return;
+		wait();
+	}
+
 	
 	
 	/**
