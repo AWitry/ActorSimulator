@@ -81,28 +81,38 @@ public class Topology
 	}
 	
 	
-	public static Topology FullMeshUniform(int numNodes, Supplier<ActorLogic> logic)
+	public static Topology FullMeshUniform(int numNodes, Supplier<ActorLogic> logic, boolean linkActorsToSelf)
 	{
 		Topology rs = new Topology();
 		ArrayList<Link> links = new ArrayList<>();
 		rs.numNodes = numNodes;
 		rs.logicFactory = (i) -> logic.get();
 		for (int i = 0; i+1 < numNodes; i++)
+		{
 			for (int j = i+1; j < numNodes; j++)
 				links.add(new Link(i, j, true));
+		}
+		if (linkActorsToSelf)
+			for (int i = 0; i < numNodes; i++)
+				links.add(new Link(i,i,false));
 		rs.links = (Link[]) links.toArray();
 		return rs;
 	}
 	
-	public static Topology FullMesh(int numNodes, IntFunction<ActorLogic> logic)
+	public static Topology FullMesh(int numNodes, IntFunction<ActorLogic> logic, boolean linkActorsToSelf)
 	{
 		Topology rs = new Topology();
 		ArrayList<Link> links = new ArrayList<>();
 		rs.numNodes = numNodes;
 		rs.logicFactory = logic;
 		for (int i = 0; i+1 < numNodes; i++)
+		{
 			for (int j = i+1; j < numNodes; j++)
 				links.add(new Link(i, j, true));
+		}
+		if (linkActorsToSelf)
+			for (int i = 0; i < numNodes; i++)
+				links.add(new Link(i,i,false));
 		rs.links = links.toArray(new Link[0]);
 		return rs;
 	}
