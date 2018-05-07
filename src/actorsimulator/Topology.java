@@ -15,25 +15,48 @@
  */
 package actorsimulator;
 
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.function.IntFunction;
-import java.util.function.Supplier;
 
 /**
- * Network graph
+ * Actor network descriptor.
+ * Defines the number of actors and their logics as well as which actors
+ * are connected.
  */
 public class Topology
 {
+	/**
+	 * Unidirectional link between actors
+	 */
 	public static class Link
 	{
-		public final int	
-				sourceNodeIndex,
-				sinkNodeIndex,
-				msDelay;
+		/**
+		 * Index of the link source actor, starting from 0
+		 */
+		public final int	sourceActorIndex;
+		/**
+		 * Index of the link source actor, starting from 1.
+		 * May be equal to sourceActorIndex
+		 */
+		public final int	sinkActorIndex;
+		/**
+		 * Message delay in milliseconds.
+		 * 0 indicates instant delivery.
+		 * Negative values imply network default delay.
+		 */
+		public final int	msDelay;
+		
+		/**
+		 * Set true to create a link in both directions.
+		 */
 		public final boolean
 				bidirectional;
 		
+		/**
+		 * Constructs a new unidirectional link with network default delay
+		 * @param sourceNodeIndex
+		 * @param sinkNodeIndex 
+		 */
 		public Link(int sourceNodeIndex, int sinkNodeIndex)
 		{
 			this(sourceNodeIndex,sinkNodeIndex,-1,false);
@@ -44,67 +67,91 @@ public class Topology
 		}
 		public Link(int sourceNodeIndex, int sinkNodeIndex, int msDelay, boolean bidirectional)
 		{
-			this.sourceNodeIndex = sourceNodeIndex;
-			this.sinkNodeIndex = sinkNodeIndex;
+			this.sourceActorIndex = sourceNodeIndex;
+			this.sinkActorIndex = sinkNodeIndex;
 			this.msDelay = msDelay;
 			this.bidirectional = bidirectional;
 		}
 	};
 	
-	public int numNodes;
-	public IntFunction<ActorLogic> logicFactory;
-	public Link[] links;
+	/**
+	 * Number of actors in the local topology
+	 */
+	public final int numActors;
+	/**
+	 * Factory to construct new actor logics with.
+	 * The passed parameter is set to the index of the respective actor
+	 * in [0,numActors-1)
+	 */
+	public final IntFunction<ActorLogic> logicFactory;
+	/**
+	 * Links between actors
+	 */
+	public final Link[] links;
 	
+	
+	/**
+	 * Constructs a new topology with the given configuration
+	 * @param numNodes Number of nodes in the local topology
+	 * @param logicFactory Factory for new actor logics. Must not be null
+	 * if numNodes is greater than 0.
+	 * @param links Array of links. May be empty or null
+	 */
+	public Topology(int numNodes, IntFunction<ActorLogic> logicFactory, Link[] links)
+	{
+		if (numNodes < 0)
+			throw new IllegalArgumentException("numNodes is negative");
+		if (logicFactory == null && numNodes > 0)
+			throw new IllegalArgumentException("logicFactory is null");
+
+		this.numActors = numNodes;	
+		this.logicFactory = logicFactory;
+		this.links = links;
+	}
+	
+	
+	/**
+	 * Implements the local topology in the specified network
+	 * @param n Network to implement the topology in
+	 */
 	public void ImplementIn(Network n)
 	{
-		if (numNodes == 0)
+		if (numActors == 0)
 			return;
-		ActorControl[] newNodes = new ActorControl[numNodes];
-		for (int i = 0; i < numNodes; i++)
+		ActorControl[] newNodes = new ActorControl[numActors];
+		for (int i = 0; i < numActors; i++)
 			newNodes[i] = n.instantiate(logicFactory.apply(i));
-		for (Topology.Link lnk : links)
-		{
-			ActorControl src = newNodes[lnk.sourceNodeIndex];
-			ActorControl snk = newNodes[lnk.sinkNodeIndex];
-			if (lnk.msDelay >= 0)
-				n.link(src, snk, lnk.msDelay);
-			else
-				n.link(src, snk);
-			if (lnk.bidirectional)
+		if (links != null)
+			for (Topology.Link lnk : links)
 			{
+				ActorControl src = newNodes[lnk.sourceActorIndex];
+				ActorControl snk = newNodes[lnk.sinkActorIndex];
 				if (lnk.msDelay >= 0)
-					n.link(snk, src, lnk.msDelay);
+					n.link(src, snk, lnk.msDelay);
 				else
-					n.link(snk, src);
+					n.link(src, snk);
+				if (lnk.bidirectional)
+				{
+					if (lnk.msDelay >= 0)
+						n.link(snk, src, lnk.msDelay);
+					else
+						n.link(snk, src);
+				}
 			}
-		}
 	}
 	
-	
-	public static Topology FullMeshUniform(int numNodes, Supplier<ActorLogic> logic, boolean linkActorsToSelf)
-	{
-		Topology rs = new Topology();
-		ArrayList<Link> links = new ArrayList<>();
-		rs.numNodes = numNodes;
-		rs.logicFactory = (i) -> logic.get();
-		for (int i = 0; i+1 < numNodes; i++)
-		{
-			for (int j = i+1; j < numNodes; j++)
-				links.add(new Link(i, j, true));
-		}
-		if (linkActorsToSelf)
-			for (int i = 0; i < numNodes; i++)
-				links.add(new Link(i,i,false));
-		rs.links = (Link[]) links.toArray();
-		return rs;
-	}
-	
+	/**
+	 * Constructs a full mesh topology.
+	 * Each actor is connected to every other actor.
+	 * @param numNodes Number of nodes in the network
+	 * @param logic Individual actor logic factory.
+	 * The passed parameter maps to the respective actor index in [0,numNodes).
+	 * @param linkActorsToSelf Set true to connect actors to themselves
+	 * @return Created topology
+	 */
 	public static Topology FullMesh(int numNodes, IntFunction<ActorLogic> logic, boolean linkActorsToSelf)
 	{
-		Topology rs = new Topology();
 		ArrayList<Link> links = new ArrayList<>();
-		rs.numNodes = numNodes;
-		rs.logicFactory = logic;
 		for (int i = 0; i+1 < numNodes; i++)
 		{
 			for (int j = i+1; j < numNodes; j++)
@@ -113,8 +160,7 @@ public class Topology
 		if (linkActorsToSelf)
 			for (int i = 0; i < numNodes; i++)
 				links.add(new Link(i,i,false));
-		rs.links = links.toArray(new Link[0]);
-		return rs;
+		return new Topology(numNodes,logic,links.toArray(new Link[0]));
 	}
 	
 }
