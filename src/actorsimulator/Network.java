@@ -217,6 +217,7 @@ public class Network
 		public int	sent = 0,
 					received = 0,
 					active = 0;
+		public Actor singleActive = null;
 		
 		public boolean equals(Status other)
 		{
@@ -233,7 +234,7 @@ public class Network
 		
 		public String toString()
 		{
-			return "sent="+sent+",recv="+received+",active="+active;
+			return "sent="+sent+",recv="+received+",active="+(active != 1 ? active : singleActive);
 		}
 		
 	};
@@ -252,7 +253,10 @@ public class Network
 				s.received += st.receivedMessages;
 				s.sent += st.sentMessages;
 				if (st.isActive())
+				{
 					s.active ++;
+					s.singleActive = act;
+				}
 			}
 			
 			return s;
@@ -376,6 +380,8 @@ public class Network
 					Status s1 = detectStatus();
 					if (!s1.equals(s0))
 						continue;
+					
+					log(true,"Termination detected: <"+s0+"> == <"+s1+">");
 					
 					terminated.set();
 					log(false, "TerminationChecker: Exit");
