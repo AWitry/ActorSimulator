@@ -15,6 +15,8 @@
  */
 package actorsimulator;
 
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -128,16 +130,8 @@ class ActorControlImpl implements ActorControl
 	@Override
 	public void shutdown()
 	{
-		wrapper.quit = true;
 		pending.quit();
-		thread.interrupt();
-		try
-		{
-			thread.join();
-		} catch (InterruptedException ex)
-		{
-			Logger.getLogger(ActorControlImpl.class.getName()).log(Level.SEVERE, null, ex);
-		}
+		wrapper.quit();
 		Log.println(Log.Significance.MinorNetworkEvent, this+": Shut down");
 		
 	}
@@ -154,8 +148,15 @@ class ActorControlImpl implements ActorControl
 	@Override
 	public synchronized void start()
 	{
-		thread = new Thread(wrapper);
-		thread.start();
+		try
+		{
+			wrapper.start();
+		}
+		catch (Exception ex)
+		{
+			Log.println(Log.Significance.Error, this+": "+ex);
+			shutdown();
+		}
 	}
 
 	@Override
@@ -176,7 +177,8 @@ class ActorControlImpl implements ActorControl
 		public volatile boolean quit = false;
 		private final ActorLogic logic;
 		public volatile boolean isActive = false;
-		
+		private final CyclicBarrier firstActivationCheck = new CyclicBarrier(2);
+		Thread thread = null;
 		
 		private LogicWrapper(ActorLogic logic)
 		{
@@ -186,14 +188,20 @@ class ActorControlImpl implements ActorControl
 		@Override
 		public void run()
 		{
+			boolean first = true;
 			while (!quit)
 			{
 				isActive = true;
 				try
 				{
+					if (first)
+					{
+						firstActivationCheck.await();
+						first = false;
+					}
 					logic.execute(ActorControlImpl.this);
 				}
-				catch (BlockingQueue.Quit q)
+				catch (BlockingQueue.Quit | InterruptedException | BrokenBarrierException q)
 				{
 					quit = true;
 					//all good
@@ -201,7 +209,7 @@ class ActorControlImpl implements ActorControl
 				catch (Exception ex)
 				{
 					//what are we supposed to do now...?
-					Logger.getLogger(ActorControlImpl.class.getName()).log(Level.SEVERE, null, ex);
+					Log.println(Log.Significance.Error, this+": "+ex);
 				}
 				isActive = false;
 				
@@ -227,10 +235,30 @@ class ActorControlImpl implements ActorControl
 		{
 			return ActorControlImpl.this.toString();
 		}
+
+		public void start() throws InterruptedException, BrokenBarrierException
+		{
+			thread = new Thread(this);
+			thread.start();
+			firstActivationCheck.await();
+		}
+
+		public void quit()
+		{
+			quit = true;
+			thread.interrupt();
+			try
+			{
+				thread.join();
+			} catch (InterruptedException ex)
+			{
+				Log.println(Log.Significance.Error, this+": "+ ex);
+			}
+		}
+
 	}
 	
 	
-	private Thread thread;
 	private final LogicWrapper wrapper;
 	
 	public ActorControlImpl(Network network, ActorLogic logic)
