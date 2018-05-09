@@ -37,11 +37,15 @@ public class ActorSimulator
 		//network.instantiate(new Ping());	//dynamically establishes its network
 		
 		//construct 10 actor ring network:
-		Actor[] actors = new Actor[10];
-		for (int i = 0; i < actors.length; i++)
-			actors[i] = network.instantiate(new BlockingRingLogic(i==0));	//can also use RingLogic(i==0) here
-		for (int i = 0; i < actors.length; i++)
-			network.link(actors[i], actors[(i+1)%actors.length]);	//create uni-directional link
+		NetworkBlueprint
+				.CreateRing(10,(i) -> new BlockingRingLogic(i==0), false)
+				.ImplementIn(network);
+		//alternatively manually:
+//		Actor[] actors = new Actor[10];
+//		for (int i = 0; i < actors.length; i++)
+//			actors[i] = network.instantiate(new BlockingRingLogic(i==0));	//can also use RingLogic(i==0) here
+//		for (int i = 0; i < actors.length; i++)
+//			network.link(actors[i], actors[(i+1)%actors.length]);	//create uni-directional link
 
 		network.start();	//start threads and run the system
 		network.awaitTermination();	//sleep until the network has stopped
