@@ -16,6 +16,7 @@
 package actorsimulator;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.function.IntFunction;
 
 /**
@@ -23,7 +24,7 @@ import java.util.function.IntFunction;
  * Defines the number of actors and their logics as well as which actors
  * are connected.
  */
-public class Topology
+public class NetworkBlueprint
 {
 	/**
 	 * Unidirectional link between actors
@@ -97,7 +98,7 @@ public class Topology
 	 * if numNodes is greater than 0.
 	 * @param links Array of links. May be empty or null
 	 */
-	public Topology(int numNodes, IntFunction<ActorLogic> logicFactory, Link[] links)
+	public NetworkBlueprint(int numNodes, IntFunction<ActorLogic> logicFactory, Link[] links)
 	{
 		if (numNodes < 0)
 			throw new IllegalArgumentException("numNodes is negative");
@@ -109,6 +110,10 @@ public class Topology
 		this.links = links;
 	}
 	
+	public NetworkBlueprint(int numNodes, IntFunction<ActorLogic> logicFactory, List<Link> links)
+	{
+		this(numNodes,logicFactory,links.toArray(new Link[0]));
+	}
 	
 	/**
 	 * Implements the local topology in the specified network
@@ -122,7 +127,7 @@ public class Topology
 		for (int i = 0; i < numActors; i++)
 			newNodes[i] = n.instantiate(logicFactory.apply(i));
 		if (links != null)
-			for (Topology.Link lnk : links)
+			for (NetworkBlueprint.Link lnk : links)
 			{
 				ActorControl src = newNodes[lnk.sourceActorIndex];
 				ActorControl snk = newNodes[lnk.sinkActorIndex];
@@ -143,24 +148,24 @@ public class Topology
 	/**
 	 * Constructs a full mesh topology.
 	 * Each actor is connected to every other actor.
-	 * @param numNodes Number of nodes in the network
+	 * @param numActors Number of actors in the network
 	 * @param logic Individual actor logic factory.
 	 * The passed parameter maps to the respective actor index in [0,numNodes).
 	 * @param linkActorsToSelf Set true to connect actors to themselves
-	 * @return Created topology
+	 * @return Created blueprint
 	 */
-	public static Topology FullMesh(int numNodes, IntFunction<ActorLogic> logic, boolean linkActorsToSelf)
+	public static NetworkBlueprint CreateFullMesh(int numActors, IntFunction<ActorLogic> logic, boolean linkActorsToSelf)
 	{
 		ArrayList<Link> links = new ArrayList<>();
-		for (int i = 0; i+1 < numNodes; i++)
+		for (int i = 0; i+1 < numActors; i++)
 		{
-			for (int j = i+1; j < numNodes; j++)
+			for (int j = i+1; j < numActors; j++)
 				links.add(new Link(i, j, true));
 		}
 		if (linkActorsToSelf)
-			for (int i = 0; i < numNodes; i++)
+			for (int i = 0; i < numActors; i++)
 				links.add(new Link(i,i,false));
-		return new Topology(numNodes,logic,links.toArray(new Link[0]));
+		return new NetworkBlueprint(numActors,logic,links);
 	}
 	
 }
