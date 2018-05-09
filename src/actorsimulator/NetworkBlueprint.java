@@ -146,6 +146,24 @@ public class NetworkBlueprint
 	}
 	
 	/**
+	 * Creates a new ring topology.
+	 * The last actor is linked back to the first.
+	 * @param numActors Number of actors in the ring
+	 * @param logic Individual actor logic factory.
+	 * The passed parameter maps to the respective actor index in [0,numNodes).
+	 * @param bidirectional Set true to create reverse links
+	 * @return New blueprint according to the specification
+	 */
+	public static NetworkBlueprint CreateRing(int numActors, IntFunction<ActorLogic> logic, boolean bidirectional)
+	{
+		ArrayList<Link> links = new ArrayList<>();
+		for (int i = 0; i < numActors; i++)
+			links.add(new Link(i,(i+1)%numActors,bidirectional));
+		
+		return new NetworkBlueprint(numActors, logic, links);
+	
+	}
+	/**
 	 * Constructs a full mesh topology.
 	 * Each actor is connected to every other actor.
 	 * @param numActors Number of actors in the network
