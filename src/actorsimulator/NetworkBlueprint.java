@@ -119,7 +119,7 @@ public class NetworkBlueprint
 	 * Implements the local topology in the specified network
 	 * @param n Network to implement the topology in
 	 */
-	public void ImplementIn(Network n)
+	public void implementIn(Network n)
 	{
 		if (numActors == 0)
 			return;
@@ -154,7 +154,7 @@ public class NetworkBlueprint
 	 * @param bidirectional Set true to create reverse links
 	 * @return New blueprint according to the specification
 	 */
-	public static NetworkBlueprint CreateRing(int numActors, IntFunction<ActorLogic> logic, boolean bidirectional)
+	public static NetworkBlueprint createRing(int numActors, IntFunction<ActorLogic> logic, boolean bidirectional)
 	{
 		ArrayList<Link> links = new ArrayList<>();
 		for (int i = 0; i < numActors; i++)
@@ -172,7 +172,7 @@ public class NetworkBlueprint
 	 * @param linkActorsToSelf Set true to connect actors to themselves
 	 * @return Created blueprint
 	 */
-	public static NetworkBlueprint CreateFullMesh(int numActors, IntFunction<ActorLogic> logic, boolean linkActorsToSelf)
+	public static NetworkBlueprint createFullMesh(int numActors, IntFunction<ActorLogic> logic, boolean linkActorsToSelf)
 	{
 		ArrayList<Link> links = new ArrayList<>();
 		for (int i = 0; i+1 < numActors; i++)

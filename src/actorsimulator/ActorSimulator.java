@@ -38,8 +38,8 @@ public class ActorSimulator
 		
 		//construct 10 actor ring network:
 		NetworkBlueprint
-				.CreateRing(10,(i) -> new BlockingRingLogic(i==0), false)
-				.ImplementIn(network);
+				.createRing(10,(i) -> new BlockingRingLogic(i==0), false)
+				.implementIn(network);
 		//alternatively manually:
 //		Actor[] actors = new Actor[10];
 //		for (int i = 0; i < actors.length; i++)
