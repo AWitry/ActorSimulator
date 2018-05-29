@@ -48,6 +48,11 @@ public class OutgoingLinks
 		return link.ref;
 	}
 	
+	public int count()
+	{
+		return outgoing.size();
+	}
+	
 	public void visitAll(Consumer<? super ActorLink> visitor)
 	{
 		doLocked(() -> outgoing.forEach(visitor));

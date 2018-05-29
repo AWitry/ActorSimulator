@@ -50,6 +50,12 @@ public interface ActorLogicInterface
 	void		visitOutgoing(Consumer<? super ActorLink> visitor);
 	
 	/**
+	 * Counts the number of outgoing actor links.
+	 * @return Number of outgoing actor links
+	 */
+	int			countOutgoing();
+	
+	/**
 	 * Fetches any one existing outgoing link, or null if none exist.
 	 * It is up to the interface implementation to determine which link
 	 * is returned if multiple exist.

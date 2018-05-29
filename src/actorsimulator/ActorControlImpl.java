@@ -70,6 +70,12 @@ class ActorControlImpl implements ActorControl
 	}
 	
 	@Override
+	public int countOutgoing()
+	{
+		return outgoingLinks.count();
+	}
+	
+	@Override
 	public 	ActorLink	getAnyOutgoing()
 	{
 		return outgoingLinks.getAny();
